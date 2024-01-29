@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Hochschulsport Windhundskript
 // @namespace    http://tampermonkey.net/
-// @version      1.1
-// @description  AutoFill for the Sign Up Form of the Leipzig University Sportsprogram
+// @version      1.7
+// @description  AutoFill for the Sign-Up Form of the University Sportsprogram
 // @author       ricardofauch
 // @match        https://hochschulsport.uni-leipzig.de/cgi/anmeldung.fcgi
 // @grant        none
 // ==/UserScript==
-
+ 
 (function () {
     'use strict';
     //
@@ -17,34 +17,40 @@
     //
     // Trage hier deine Daten ein
     // ----------------------------------
-
+ 
     // Geschlecht: "M" für männlich, "W" für weiblich, "D" für divers, "X" für keine Angabe
     var geschlecht = "X";
-
+ 
     // Dein Vorname
     var vorname = "Wolfgang";
-
+ 
     // Dein Nachname
     var familienname = "Windhund";
-
+ 
     // Deine Straße und Hausnummer
     var straßennameundnr = "Windhundweg 42";
-
+ 
     // Deine Postleitzahl und Ort
-    var plzort = "04312 Leipzig";
-
+    var plzort = "03055 Potsdam";
+ 
     // Dein Geburtsdatum
     var geburtsdatum = "01.01.2000";
-
+ 
     // Deine Matrikel-Nr.
     var matrikelnr = "1234567";
-
+ 
     // Deine Mailadresse
     var mail = "wolfgangwindhund@studserv.uni-leipzig.de";
-
+ 
+    // Deine Telefonnummer
+    var phone = "015731234567";
+ 
+    // Deine IBAN
+    var iban = "DE09500211008264647211";
+ 
     // Dein Status an der Uni
     var status = "S-UNIL";
-
+ 
     // Glossar für die Status Optionen:
     // "S-UNIL": StudentIn der Universität Leipzig
     // "S-HGB": StudentIn der Hochschule für Grafik und Buchkunst (HGB)
@@ -67,13 +73,13 @@
     // "B-HfMT": Beschäftigte/r der Hochschule für Musik und Theater (HfMT)
     // "B-HTWK": Beschäftigte/r der Hochschule für Technik, Wirtschaft und Kultur (HTWK)
     // "B-SDI": Beschäftigte/r am Simon-Dubnow-Institut (SDI)
-
+ 
     //
     //
     //
     //
     //
-
+ 
     // Find the input elements by their IDs
     var inputElementVorname = document.getElementById('BS_F1100');
     var inputElementFamilienname = document.getElementById('BS_F1200');
@@ -83,15 +89,23 @@
     var inputElementStatus = document.getElementById('BS_F1600');
     var inputElementMatrikelNr = document.getElementById('BS_F1700');
     var inputElementMail = document.getElementById('BS_F2000');
-
+    var inputElementPhone = document.getElementById('BS_F2100');
+    var inputElementIban = document.getElementById('BS_F_iban');
+ 
     // Find the radio input element by its attributes (type, name, and value)
     var radioInput = document.querySelector(`input[type="radio"][name="sex"][value="${geschlecht}"]`);
-
+ 
     if (radioInput) {
         // Check the radio input
         radioInput.checked = true;
+    } else {
+        var radioInput2 = document.querySelector(`input[type="radio"][name="sex"][value="M"]`);
+        if (radioInput2) {
+        // Check the radio input
+        radioInput2.checked = true;
+        }
     }
-
+ 
     // Set the value of the input fields
     if (inputElementVorname) {
         inputElementVorname.value = vorname;
@@ -113,11 +127,11 @@
     }
     // Find the status input element by its ID
     var inputElement = document.getElementById('BS_F1700');
-
+ 
     if (inputElement) {
         // Find the parent element of the input
         var parentElement = inputElement.closest('.bs_form_row');
-
+ 
         if (parentElement) {
             // Change the style to display: block
             parentElement.style.display = 'block';
@@ -125,20 +139,29 @@
     }
     if (inputElementMatrikelNr) {
         inputElementMatrikelNr.value = matrikelnr;
+ 
+        // Remove the disabled attribute
+        inputElementMatrikelNr.removeAttribute("disabled");
     }
     if (inputElementMail) {
         inputElementMail.value = mail;
     }
+    if (inputElementPhone) {
+        inputElementPhone.value = phone;
+    }
+    if (inputElementIban) {
+        inputElementIban.value = iban;
+    }
     // Find the checkbox element by its name
     var checkboxElement = document.querySelector('input[name="tnbed"]');
-
+ 
     if (checkboxElement) {
         // Check the checkbox
         checkboxElement.checked = true;
     }
     // Find the submit element by its id
     var submitElement = document.getElementById('bs_submit');
-
+ 
     if (submitElement) {
         // Check if the element has the "hidden" class
         if (submitElement.classList.contains('hidden')) {
@@ -149,7 +172,7 @@
         submitElement.disabled=false;
         // Find the parent form element
         var form = submitElement.closest('form');
-
+ 
         if (form) {
             // Submit the form
             form.submit();
@@ -162,8 +185,8 @@
         console.log("repeatMailElement: ", repeatMailElement)
         if (repeatMailElement) {
         // Set the value of the input element to mail
-        repeatMailElement.value = mail;
+        //repeatMailElement.value = mail;
         }
     },200)
-
+ 
 })();
