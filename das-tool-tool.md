@@ -17,7 +17,7 @@ Das Tool Tool ist ein Userscript, das den Anmeldeprozess für Sprachkurse an der
 3. Folgen Sie den Anweisungen zur Installation der Erweiterung
 
 ### Schritt 2: Das Tool Tool installieren
-1. Gehen Sie zur GreasyFork-Seite dieses Scripts
+1. Gehen Sie zur [GreasyFork-Seite](https://greasyfork.org/en/scripts/511198-das-tool-tool) dieses Scripts
 2. Klicken Sie auf den "Installieren"-Button
 3. Tampermonkey sollte sich öffnen und Sie nach einer Bestätigung fragen
 4. Klicken Sie auf "Installieren", um das Script zu aktivieren
