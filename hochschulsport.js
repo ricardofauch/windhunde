@@ -1,20 +1,63 @@
 // ==UserScript==
 // @name         Hochschulsport Windhundskript
 // @namespace    http://tampermonkey.net/
-// @version      2.3.1
+// @version      2.3.2
 // @description  AutoFill mit Benutzereingabe für das Anmeldeformular des Universitätssportprogramms
 // @author       ricardofauch
 // @match        https://hochschulsport.uni-leipzig.de/angebote/*
 // @match        https://hochschulsport.uni-leipzig.de/cgi/anmeldung.fcgi
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_addStyle
 // @downloadURL https://update.greasyfork.org/scripts/478176/Hochschulsport%20Windhundskript.user.js
 // @updateURL https://update.greasyfork.org/scripts/478176/Hochschulsport%20Windhundskript.meta.js
 // ==/UserScript==
 
 (function() {
     'use strict';
-
+    // Add styles using GM_addStyle
+    GM_addStyle(`
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+            margin-right: 5px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-switch .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+        .toggle-switch .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        .toggle-switch input:checked + .slider {
+            background-color: #2196F3;
+        }
+        .toggle-switch input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+    `);
     // Function to create and show the input form
     function showInputForm() {
         const savedUserData = JSON.parse(GM_getValue('userData', '{}'));
@@ -29,23 +72,26 @@
                     Das zugehörige Skript wird diese Informationen automatisch in das offizielle Anmeldeformular eintragen,
                     um den Anmeldeprozess zu beschleunigen.
                     </p>
-                    <p>
-                    Bitte fülle alle Felder sorgfältig aus. Deine Daten werden lokal in deinem Browser gespeichert und
-                    können jederzeit aktualisiert werden. Das Skript verwendet diese Daten nur für die Anmeldung zum
-                    Hochschulsport und überträgt sie nicht an Dritte.
-                    </p>
-                    <p>
-                    Nach dem Speichern deiner Daten kannst du zur Anmeldeseite des Hochschulsports navigieren.
-                    Das Skript wird automatisch deine gespeicherten Informationen in das Formular eintragen.
-                    </p>
-                    <p>
-                    Falls du die Daten zu einem späteren Zeitpunkt aktualisieren möchtest, kannst du jederzeit auf den Button
-                    "Persönliche Daten aktualisieren" klicken, der sich oben rechts auf der Hochschulsport-Angeboteseite befindet.
-                    </p>
-                    <p>
-                    Wenn du die automatische Absendung aktiviert hast, wird während des Vorgangs eine kleine Benachrichtigung angezeigt.
-                    Bitte warte, bis diese verschwindet, und interagiere nicht mit der Seite, um eine erfolgreiche Anmeldung zu gewährleisten.
-                    </p>
+                    <details>
+                        <summary style="margin-left: 10px; color: grey; cursor: pointer">mehr Infos</summary>
+                        <p>
+                        Bitte fülle alle Felder sorgfältig aus. Deine Daten werden lokal in deinem Browser gespeichert und
+                        können jederzeit aktualisiert werden. Das Skript verwendet diese Daten nur für die Anmeldung zum
+                        Hochschulsport und überträgt sie nicht an Dritte.
+                        </p>
+                        <p>
+                        Nach dem Speichern deiner Daten kannst du zur Anmeldeseite des Hochschulsports navigieren.
+                        Das Skript wird automatisch deine gespeicherten Informationen in das Formular eintragen.
+                        </p>
+                        <p>
+                        Falls du die Daten zu einem späteren Zeitpunkt aktualisieren möchtest, kannst du jederzeit auf den Button
+                        "Persönliche Daten aktualisieren" klicken, der sich oben rechts auf der Hochschulsport-Angeboteseite befindet.
+                        </p>
+                        <p>
+                        Wenn du die automatische Absendung aktiviert hast, wird während des Vorgangs eine kleine Benachrichtigung angezeigt.
+                        Bitte warte, bis diese verschwindet, und interagiere nicht mit der Seite, um eine erfolgreiche Anmeldung zu gewährleisten.
+                        </p>
+                        </details>
                     </div>
                     <form id="dataForm" style="display: grid; gap: 15px;">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
@@ -125,6 +171,10 @@
                             <input type="checkbox" name="autoSubmit" ${savedUserData.autoSubmit !== false ? 'checked' : ''}>
                             <span style="font-size: 0.9em; color: #555;">Submit-Buttons automatisch klicken</span>
                         </label>
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" name="autoRefresh" ${savedUserData.autoRefresh === true ? 'checked' : ''}>
+                            <span style="font-size: 0.9em; color: #555;">Auto-Refresh aktivieren</span>
+                        </label>
                         <button type="submit" style="background-color: #4CAF50; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em;">Speichern</button>
                     </form>
                 </div>
@@ -144,10 +194,56 @@
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData.entries());
             data.autoSubmit = formData.get('autoSubmit') === 'on';
+            data.autoRefresh = formData.get('autoRefresh') === 'on';
             GM_setValue('userData', JSON.stringify(data));
             document.getElementById('userInputForm').remove();
-            //alert('Daten gespeichert. Sie können nun mit der Anmeldung fortfahren.');
+            updateUI(data);
+            updateToggleSwitch(); // Add this line to update the toggle switch
         });
+    }
+    function updateToggleSwitch() {
+        const userData = JSON.parse(GM_getValue('userData', '{}'));
+        const toggleSwitch = document.getElementById('autoRefreshToggle');
+        if (toggleSwitch) {
+            toggleSwitch.checked = userData.autoRefresh === true;
+        } else {
+        }
+    }
+    function toggleAutoRefresh() {
+        const userData = JSON.parse(GM_getValue('userData', '{}'));
+        userData.autoRefresh = !userData.autoRefresh;
+        GM_setValue('userData', JSON.stringify(userData));
+        const toggleSwitch = document.getElementById('autoRefreshToggle');
+        if (userData.autoRefresh) {
+            toggleSwitch.checked = true;
+            checkAndAutoRefresh();
+        } else {
+            toggleSwitch.checked = false;
+        }
+    }
+    function checkAndAutoRefresh() {
+        const userData = JSON.parse(GM_getValue('userData', '{}'));
+        if (userData.autoRefresh) {
+            const bsBuchElements = document.querySelectorAll('.bs_btn_buchen');
+            if (bsBuchElements){
+                if (bsBuchElements.length === 1) {
+                    const inputElement = bsBuchElements[0]
+                    if (inputElement) {
+                        if (inputElement.value === 'buchen' || inputElement.value === 'Buchen') {
+                            inputElement.click();
+                        } else {
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1000);
+                        }
+                    } else {
+                    }
+                } else {
+                }
+            } else {
+            }
+        } else {
+        }
     }
     // Add this function to create and show the overlay
     function showProgressOverlay() {
@@ -229,7 +325,6 @@
                 if (!counter) {
                     const submitButton = document.querySelector('input#bs_submit[value="weiter zur Buchung"]');
                     if (submitButton) {
-                        console.log("Counter verschwunden. Formular wird gesendet...");
                         submitButton.click();
                     } else {
                         console.error("Submit-Button 'weiter zur Buchung' nicht gefunden");
@@ -248,7 +343,6 @@
             if (userData.autoSubmit){
                 const finalSubmit = document.querySelector('input.sub[type="submit"][value="kostenpflichtig buchen"]');
                 if (finalSubmit) {
-                    console.log("Abschließender Submit-Button gefunden. Wird geklickt...");
                     finalSubmit.click();
                 } else {
                     console.error("Abschließender Submit-Button nicht gefunden");
@@ -257,26 +351,74 @@
         }, 200);
     }
 
+    function updateUI(userData){
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.position = 'fixed';
+        buttonContainer.style.top = '10px';
+        buttonContainer.style.right = '10px';
+        buttonContainer.style.zIndex = '9999';
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.alignItems = 'center';
+        buttonContainer.style.gap = '10px';
+        buttonContainer.style.backgroundColor = 'transparent';
+        buttonContainer.style.borderRadius = '5px';
+
+        const updateButton = document.createElement('button');
+        updateButton.textContent = 'Persönliche Daten aktualisieren';
+        updateButton.style.backgroundColor = 'green';
+        updateButton.style.color = 'white';
+        updateButton.style.border = 'none';
+        updateButton.style.padding = '5px 10px';
+        updateButton.style.borderRadius = '5px';
+        updateButton.style.cursor = 'pointer';
+        updateButton.addEventListener('click', showInputForm);
+
+        const switchdiv = document.createElement('div');
+        switchdiv.style.backgroundColor = 'white';
+        switchdiv.style.border = 'none';
+        switchdiv.style.padding = '5px 10px';
+        switchdiv.style.borderRadius = '5px';
+        switchdiv.style.color = 'black';
+
+        const toggleSwitchLabel = document.createElement('label');
+        toggleSwitchLabel.className = 'toggle-switch';
+
+        const toggleSwitch = document.createElement('input');
+        toggleSwitch.type = 'checkbox';
+        toggleSwitch.id = 'autoRefreshToggle';
+        toggleSwitch.checked = userData.autoRefresh;
+
+        const toggleSlider = document.createElement('span');
+        toggleSlider.className = 'slider';
+
+        toggleSwitch.addEventListener('change', toggleAutoRefresh);
+
+        toggleSwitchLabel.appendChild(toggleSwitch);
+        toggleSwitchLabel.appendChild(toggleSlider);
+        switchdiv.appendChild(toggleSwitchLabel);
+
+        const toggleLabel = document.createElement('span');
+        toggleLabel.textContent = 'Auto-Refresh';
+        toggleLabel.style.marginLeft = '5px';
+        toggleLabel.style.color = 'black';
+        switchdiv.appendChild(toggleLabel);
+
+        buttonContainer.appendChild(switchdiv);
+        buttonContainer.appendChild(updateButton);
+        document.body.appendChild(buttonContainer);
+        updateToggleSwitch();
+    }
     // Main execution
     if (window.location.href.includes('/angebote/')) {
-        // On the course selection page
-        const userData = GM_getValue('userData');
-        if (!userData) {
+        const userData = JSON.parse(GM_getValue('userData', '{}'));
+        if (!userData || Object.keys(userData).length === 0) {
             showInputForm();
         } else {
-            const updateButton = document.createElement('button');
-            updateButton.textContent = 'Persönliche Daten aktualisieren';
-            updateButton.style.position = 'fixed';
-            updateButton.style.top = '10px';
-            updateButton.style.right = '10px';
-            updateButton.style.zIndex = '9999';
-            updateButton.style.backgroundColor = 'green';
-            updateButton.style.color = 'white';
-            updateButton.addEventListener('click', showInputForm);
-            document.body.appendChild(updateButton);
+            updateUI(userData);
+            checkAndAutoRefresh();
         }
     } else if (window.location.href.includes('/cgi/anmeldung.fcgi')) {
-        // On the registration page
         fillForm();
+    } else {
     }
 })();
