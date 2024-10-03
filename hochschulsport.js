@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hochschulsport Windhundskript
 // @namespace    http://tampermonkey.net/
-// @version      2.3
+// @version      2.3.1
 // @description  AutoFill mit Benutzereingabe für das Anmeldeformular des Universitätssportprogramms
 // @author       ricardofauch
 // @match        https://hochschulsport.uni-leipzig.de/angebote/*
