@@ -132,6 +132,12 @@
         `;
 
         document.body.insertAdjacentHTML('beforeend', formHtml);
+        // Add event listener to close the form when clicking outside
+        document.getElementById('userInputForm').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.remove();
+            }
+        });
 
         document.getElementById('dataForm').addEventListener('submit', function(e) {
             e.preventDefault();
