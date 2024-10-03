@@ -223,9 +223,9 @@
     }
     function checkAndAutoRefresh() {
         const userData = JSON.parse(GM_getValue('userData', '{}'));
-        if (userData.autoRefresh) {
+        if (userData.autoRefresh && window.location.href.includes('.html')) {
             const bsBuchElements = document.querySelectorAll('.bs_btn_buchen');
-            if (bsBuchElements){
+            if (bsBuchElements.length != 0){
                 if (bsBuchElements.length === 1) {
                     const inputElement = bsBuchElements[0]
                     if (inputElement) {
@@ -234,13 +234,16 @@
                         } else {
                             setTimeout(() => {
                                 location.reload();
-                            }, 1000);
+                            }, 1500);
                         }
                     } else {
                     }
                 } else {
                 }
             } else {
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
             }
         } else {
         }
