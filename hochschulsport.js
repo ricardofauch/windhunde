@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hochschulsport Windhundskript
 // @namespace    http://tampermonkey.net/
-// @version      2.3.2
+// @version      2.3.4
 // @description  AutoFill mit Benutzereingabe für das Anmeldeformular des Universitätssportprogramms
 // @author       ricardofauch
 // @match        https://hochschulsport.uni-leipzig.de/angebote/*
@@ -57,7 +57,46 @@
         .toggle-switch input:checked + .slider:before {
             transform: translateX(20px);
         }
+        .captcha-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #ff9800;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 10000;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            max-width: 400px;
+        }
+        .captcha-highlight {
+            box-shadow: 0 0 15px 5px #ff9800 !important;
+            border: 3px solid #ff9800 !important;
+            animation: captcha-pulse 2s infinite;
+        }
+        @keyframes captcha-pulse {
+            0% { box-shadow: 0 0 15px 5px #ff9800; }
+            50% { box-shadow: 0 0 25px 8px #ff6600; }
+            100% { box-shadow: 0 0 15px 5px #ff9800; }
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     `);
+
     // Function to create and show the input form
     function showInputForm() {
         const savedUserData = JSON.parse(GM_getValue('userData', '{}'));
@@ -248,6 +287,7 @@
         } else {
         }
     }
+
     // Add this function to create and show the overlay
     function showProgressOverlay() {
         const overlay = document.createElement('div');
@@ -257,7 +297,7 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background-color: rgba(0, 0, 0, 0.8);
+        background-color: rgba(34, 139, 34, 0.9);
         color: white;
         padding: 20px;
         border-radius: 10px;
@@ -267,10 +307,67 @@
         box-shadow: 0 0 10px rgba(0,0,0,0.5);
     `;
         overlay.innerHTML = `
-        <p style="margin: 0; font-size: 14px;">Automatische Anmeldung läuft...</p>
+        <p style="margin: 0; font-size: 14px; display: flex; align-items: center; justify-content: center;">
+            <span class="loading-spinner"></span>
+            Automatische Anmeldung läuft...
+        </p>
         <p style="margin: 5px 0 0; font-size: 12px;">Bitte warte und interagiere nicht mit der Seite.</p>
     `;
         document.body.appendChild(overlay);
+    }
+
+    // Function to show CAPTCHA notification
+    function showCaptchaNotification() {
+        // Remove any existing progress overlay
+        const existingOverlay = document.getElementById('autoSubmitOverlay');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+
+        // Find and highlight the CAPTCHA field
+        const captchaField = document.getElementById('BS_F_captcha');
+        if (captchaField) {
+            // Add highlight class
+            captchaField.classList.add('captcha-highlight');
+
+            // Scroll the CAPTCHA field into view
+            captchaField.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+            });
+
+            // Focus on the CAPTCHA field after a short delay
+            setTimeout(() => {
+                captchaField.focus();
+            }, 500);
+        }
+
+        const notification = document.createElement('div');
+        notification.id = 'captchaNotification';
+        notification.className = 'captcha-notification';
+        notification.innerHTML = `
+            <h3 style="margin: 0 0 10px;">CAPTCHA erkannt!</h3>
+            <p style="margin: 0 0 10px;">Bitte löse die CAPTCHA-Aufgabe und klicke dann auf "kostenpflichtig buchen" oder drücke Enter.</p>
+            <p style="margin: 0; font-size: 12px;">Die automatische Anmeldung wurde pausiert.</p>
+        `;
+        document.body.appendChild(notification);
+
+        // Auto-remove notification and highlight after 10 seconds
+        setTimeout(() => {
+            if (notification && notification.parentNode) {
+                notification.remove();
+            }
+            if (captchaField) {
+                captchaField.classList.remove('captcha-highlight');
+            }
+        }, 10000);
+    }
+
+    // Function to check if CAPTCHA exists
+    function hasCaptcha() {
+        const captchaField = document.getElementById('BS_F_captcha');
+        return captchaField !== null;
     }
 
     // Function to fill the form
@@ -339,16 +436,23 @@
             waitAndSubmit();
         }
 
-        // Handle email confirmation
+        // Handle email confirmation and final submission
         setTimeout(function() {
             const mailCheck = document.querySelector('input[name^="email_check_"]');
             if (mailCheck) mailCheck.value = userData.mail;
-            if (userData.autoSubmit){
-                const finalSubmit = document.querySelector('input.sub[type="submit"][value="kostenpflichtig buchen"]');
-                if (finalSubmit) {
-                    finalSubmit.click();
+
+            if (userData.autoSubmit) {
+                // Check for CAPTCHA before final submission
+                if (hasCaptcha()) {
+                    showCaptchaNotification();
+                    // Don't auto-submit, let user handle CAPTCHA manually
                 } else {
-                    console.error("Abschließender Submit-Button nicht gefunden");
+                    const finalSubmit = document.querySelector('input.sub[type="submit"][value="kostenpflichtig buchen"]');
+                    if (finalSubmit) {
+                        finalSubmit.click();
+                    } else {
+                        console.error("Abschließender Submit-Button nicht gefunden");
+                    }
                 }
             }
         }, 200);
