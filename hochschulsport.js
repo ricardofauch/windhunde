@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hochschulsport Windhundskript
 // @namespace    http://tampermonkey.net/
-// @version      2.3.4
+// @version      2.3.5
 // @description  AutoFill mit Benutzereingabe für das Anmeldeformular des Universitätssportprogramms
 // @author       ricardofauch
 // @match        https://hochschulsport.uni-leipzig.de/angebote/*
@@ -95,6 +95,80 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        .welcome-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10001;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        .welcome-message {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .welcome-arrow {
+            position: absolute;
+            top: -15px;
+            right: 20px;
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 15px solid #4CAF50;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        .update-button-highlight {
+            animation: button-pulse 2s infinite;
+            box-shadow: 0 0 20px 5px rgba(76, 175, 80, 0.6) !important;
+        }
+        @keyframes button-pulse {
+            0% { box-shadow: 0 0 20px 5px rgba(76, 175, 80, 0.6); }
+            50% { box-shadow: 0 0 30px 8px rgba(76, 175, 80, 0.8); }
+            100% { box-shadow: 0 0 20px 5px rgba(76, 175, 80, 0.6); }
+        }
+        .emergency-stop {
+            position: fixed;
+            top: 35%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10002;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+            animation: emergency-pulse 1.5s infinite;
+            font-family: Arial, sans-serif;
+        }
+        .emergency-stop:hover {
+            background-color: #c82333;
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+        @keyframes emergency-pulse {
+            0% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4); }
+            50% { box-shadow: 0 4px 25px rgba(220, 53, 69, 0.8); }
+            100% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4); }
+        }
     `);
 
     // Function to create and show the input form
@@ -162,11 +236,22 @@
                         </label>
                         <label style="display: flex; flex-direction: column;">
                             <span style="font-size: 0.9em; color: #555;">PLZ und Ort:</span>
-                            <input type="text" name="plzort" required style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;" value="${savedUserData.plzort || ''}">
+                            <input type="text" name="plzort" required
+                                   pattern="^(?=.*\\d{5})(?=.*[a-zA-ZäöüÄÖÜß]{2,}).*$"
+                                   title="Bitte geben Sie eine 5-stellige PLZ und mindestens 2 Buchstaben für den Ort ein (z.B. 04109 Leipzig)"
+                                   placeholder="z.B. 04109 Leipzig"
+                                   style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+                                   value="${savedUserData.plzort || ''}">
                         </label>
                         <label style="display: flex; flex-direction: column;">
                             <span style="font-size: 0.9em; color: #555;">Matrikel-Nr.:</span>
-                            <input type="text" name="matrikelnr" required style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;" value="${savedUserData.matrikelnr || ''}">
+                            <input type="text" name="matrikelnr" required
+                                   pattern="^\\d{5,8}$"
+                                   title="Bitte geben Sie eine 5-8 stellige Matrikelnummer ein (nur Zahlen)"
+                                   placeholder="z.B. 1234567"
+                                   maxlength="8"
+                                   style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+                                   value="${savedUserData.matrikelnr || ''}">
                         </label>
                         <label style="display: flex; flex-direction: column;">
                             <span style="font-size: 0.9em; color: #555;">E-Mail:</span>
@@ -288,7 +373,137 @@
         }
     }
 
-    // Add this function to create and show the overlay
+    // Global variable to track if script should stop
+    let emergencyStop = false;
+
+    // Function to show emergency stop button
+    function showEmergencyStop() {
+        // Don't show if already exists
+        if (document.getElementById('emergencyStopButton')) return;
+
+        const stopButton = document.createElement('button');
+        stopButton.id = 'emergencyStopButton';
+        stopButton.className = 'emergency-stop';
+        stopButton.textContent = '🛑 STOPP';
+        stopButton.title = 'Automatischen Vorgang stoppen';
+
+        stopButton.addEventListener('click', function() {
+            emergencyStop = true;
+            stopButton.remove();
+
+            // Remove progress overlay if exists
+            const overlay = document.getElementById('autoSubmitOverlay');
+            if (overlay) overlay.remove();
+
+            // Show notification that script was stopped
+            showStopNotification();
+        });
+
+        document.body.appendChild(stopButton);
+    }
+
+    // Function to hide emergency stop button
+    function hideEmergencyStop() {
+        const stopButton = document.getElementById('emergencyStopButton');
+        if (stopButton) stopButton.remove();
+    }
+
+    // Function to show stop notification
+    function showStopNotification() {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #dc3545;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 10000;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        `;
+        notification.innerHTML = `
+            <h3 style="margin: 0 0 10px;">⛔ Automatischer Vorgang gestoppt!</h3>
+            <p style="margin: 0; font-size: 14px;">Du kannst nun manuell fortfahren.</p>
+        `;
+        document.body.appendChild(notification);
+
+        // Auto-remove notification after 5 seconds
+        setTimeout(() => {
+            if (notification && notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+
+    // Function to check if emergency stop was triggered
+    function isEmergencyStopped() {
+        return emergencyStop;
+    }
+    function showWelcomeMessage() {
+        const overlay = document.createElement('div');
+        overlay.className = 'welcome-overlay';
+        overlay.id = 'welcomeOverlay';
+
+        const message = document.createElement('div');
+        message.className = 'welcome-message';
+
+        message.innerHTML += `
+            <h2 style="color: #4CAF50; margin-top: 0;">Willkommen beim Hochschulsport Windhundskript! 🎯</h2>
+            <p style="color: #333; font-size: 16px; line-height: 1.5;">
+                Um das Skript zu nutzen, trage zu aller erst deine persönlichen Daten ein.
+            </p>
+            <p style="color: #666; font-size: 14px; margin-bottom: 0;">
+                Klicke irgendwo oder drücke eine Taste, um diese Nachricht zu schließen.
+            </p>
+        `;
+
+        overlay.appendChild(message);
+        document.body.appendChild(overlay);
+
+        // Add event listeners to close the message
+        const closeWelcome = () => {
+            overlay.remove();
+            // Mark that user has seen the welcome message
+            GM_setValue('hasSeenWelcome', 'true');
+            // Remove highlight from button
+            const updateButton = document.querySelector('button');
+            if (updateButton && updateButton.textContent.includes('Persönliche Daten aktualisieren')) {
+                updateButton.classList.remove('update-button-highlight');
+            }
+        };
+
+        // Close on click anywhere
+        overlay.addEventListener('click', closeWelcome);
+
+        // Close on any key press
+        document.addEventListener('keydown', function handleKeydown(e) {
+            closeWelcome();
+            document.removeEventListener('keydown', handleKeydown);
+        });
+    }
+
+    // Function to check if user is first-time and show welcome
+    function checkFirstTimeUser() {
+        const hasSeenWelcome = GM_getValue('hasSeenWelcome', 'false');
+        const userData = JSON.parse(GM_getValue('userData', '{}'));
+
+        // Show welcome if user hasn't seen it AND has no saved data
+        if (hasSeenWelcome === 'false' && Object.keys(userData).length === 0) {
+            // Wait a bit for the UI to load, then show welcome
+            setTimeout(() => {
+                showWelcomeMessage();
+                // Highlight the update button
+                const updateButton = document.querySelector('button');
+                if (updateButton && updateButton.textContent.includes('Persönliche Daten aktualisieren')) {
+                    updateButton.classList.add('update-button-highlight');
+                }
+            }, 500);
+        }
+    }
     function showProgressOverlay() {
         const overlay = document.createElement('div');
         overlay.id = 'autoSubmitOverlay';
@@ -314,6 +529,9 @@
         <p style="margin: 5px 0 0; font-size: 12px;">Bitte warte und interagiere nicht mit der Seite.</p>
     `;
         document.body.appendChild(overlay);
+
+        // Show emergency stop button when automation starts
+        showEmergencyStop();
     }
 
     // Function to show CAPTCHA notification
@@ -421,10 +639,16 @@
             }
 
             function waitAndSubmit() {
+                // Check for emergency stop
+                if (isEmergencyStopped()) {
+                    console.log("Emergency stop triggered - stopping automation");
+                    return;
+                }
+
                 const counter = document.querySelector('#bs_counter:not(.hidden)');
                 if (!counter) {
                     const submitButton = document.querySelector('input#bs_submit[value="weiter zur Buchung"]');
-                    if (submitButton) {
+                    if (submitButton && !isEmergencyStopped()) {
                         submitButton.click();
                     } else {
                         console.error("Submit-Button 'weiter zur Buchung' nicht gefunden");
@@ -524,6 +748,10 @@
             updateUI(userData);
             checkAndAutoRefresh();
         }
+
+        // Check if this is a first-time user and show welcome message
+        checkFirstTimeUser();
+
     } else if (window.location.href.includes('/cgi/anmeldung.fcgi')) {
         fillForm();
     } else {
